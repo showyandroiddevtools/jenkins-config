@@ -1,0 +1,78 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <logRotator class="hudson.tasks.LogRotator">
+    <daysToKeep>-1</daysToKeep>
+    <numToKeep>30</numToKeep>
+    <artifactDaysToKeep>-1</artifactDaysToKeep>
+    <artifactNumToKeep>-1</artifactNumToKeep>
+  </logRotator>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.plugins.disk__usage.DiskUsageProperty plugin="disk-usage@0.25"/>
+  </properties>
+  <scm class="hudson.plugins.repo.RepoScm" plugin="repo@1.6">
+    <manifestRepositoryUrl>https://android.googlesource.com/platform/manifest</manifestRepositoryUrl>
+    <manifestBranch>studio-1.3-dev</manifestBranch>
+    <jobs>8</jobs>
+    <currentBranch>true</currentBranch>
+    <quiet>true</quiet>
+  </scm>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <jdk>jdk1.6</jdk>
+  <triggers>
+    <hudson.triggers.SCMTrigger>
+      <spec>H/30 * * * *</spec>
+      <ignorePostCommitHooks>false</ignorePostCommitHooks>
+    </hudson.triggers.SCMTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <customWorkspace>workspace/tools-1.3-dev</customWorkspace>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>export GRADLE_USER_HOME=`pwd`/out/home/gradle
+export M2_HOME=`pwd`/out/home/m2
+export USE_EXTERNAL_REPO=true
+rm -rf $M2_HOME/conf
+mkdir -p $M2_HOME/conf
+echo &quot;&lt;settings&gt;&lt;localRepository&gt;${M2_HOME}/repository&lt;/localRepository&gt;&lt;/settings&gt;&quot; &gt; `pwd`/out/home/m2/conf/settings.xml
+# full clean, except for gradle&apos;s folder
+#rm -rf out/tools
+#rm -rf out/repo
+#rm -rf out/build
+
+cd tools
+printenv
+./gradlew disableTestFailures prepareRepo publishLocal check aggregateResults -DintegTest.excludeCategories=com.android.build.gradle.internal.test.category.DeviceTests --continue --no-daemon
+./gradlew zipOfflineRepo dslHtmlZip</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <hudson.tasks.ArtifactArchiver>
+      <artifacts>out/dist/offline_repo.zip, out/repo.prop, out/build/base/docs/build/docs/gradle-dsl-*.zip</artifacts>
+      <allowEmptyArchive>false</allowEmptyArchive>
+      <onlyIfSuccessful>false</onlyIfSuccessful>
+      <fingerprint>false</fingerprint>
+      <defaultExcludes>true</defaultExcludes>
+    </hudson.tasks.ArtifactArchiver>
+    <hudson.tasks.junit.JUnitResultArchiver plugin="junit@1.5">
+      <testResults>out/build/root/results/*.xml</testResults>
+      <keepLongStdio>false</keepLongStdio>
+      <healthScaleFactor>1.0</healthScaleFactor>
+    </hudson.tasks.junit.JUnitResultArchiver>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.build__timeout.BuildTimeoutWrapper plugin="build-timeout@1.14.1">
+      <strategy class="hudson.plugins.build_timeout.impl.AbsoluteTimeOutStrategy">
+        <timeoutMinutes>3</timeoutMinutes>
+      </strategy>
+      <operationList>
+        <hudson.plugins.build__timeout.operations.AbortOperation/>
+      </operationList>
+    </hudson.plugins.build__timeout.BuildTimeoutWrapper>
+  </buildWrappers>
+</project>
